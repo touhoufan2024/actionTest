@@ -1,0 +1,72 @@
+name: Build and Release C++ Project
+
+on:
+  workflow_dispatch: # 手动触发工作流
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest # 使用 Ubuntu 作为运行环境
+
+    steps:
+      # Step 1: 检出代码仓库
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: 安装 CMake 和构建工具
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      # Step 3: 创建构建目录并启动 CMake 构建流程
+      - name: Build project
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          cmake --build .
+
+      # Step 4: 压缩构建产物为 ZIP 文件
+      - name: Package build artifacts
+        run: |
+          mkdir -p release
+          cd build
+          zip ../release/artifacts.zip SimpleCMakeProject
+
+      # Step 5: 上传构建产物到 GitHub Actions 中的 artifact 存储空间
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: release/artifacts.zip
+
+  release:
+    name: Upload Release
+    needs: build # 在 build 任务完成后运行
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 6: 检出代码仓库
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 7: 下载构建产物
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      # Step 8: 将构建产物上传到 GitHub Releases
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的内置 token
+        with:
+          tag_name: v1.0 # Release 的标签名称
+          release_name: "Release v1.0"
+          body: |
+            This is an auto-generated release from GitHub Actions.
+          draft: false
+          prerelease: false
+          artifacts: release/artifacts.zip  # 构建产物路径
