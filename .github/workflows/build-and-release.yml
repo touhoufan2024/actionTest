@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # 手动触发工作流
 
 permissions:
-  contents: write # 确保赋予 GITHUB_TOKEN 写入权限
+  contents: write # 确保有写权限
 
 jobs:
   build:
@@ -50,32 +50,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: 检出代码仓库
+      # Step 1: 获取当前时间作为 tag 的标识
+      - name: Generate release tag
+        id: vars
+        run: echo "TAG_NAME=v1.${{ github.run_number }}" >> $GITHUB_ENV
+
+      # Step 2: 检出代码仓库
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: 下载构建产物
+      # Step 3: 下载构建产物
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
           path: ./release
 
-      # Step 3: 创建 GitHub Release
+      # Step 4: 创建 GitHub Release
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v1.0 # 为 release 指定的 tag 名称
-          release_name: "Release v1.0"
+          tag_name: ${{ env.TAG_NAME }} # 动态生成的 tag
+          release_name: "Release ${{ env.TAG_NAME }}"
           body: |
             This is an auto-generated release from GitHub Actions.
           draft: false
           prerelease: false
 
-      # Step 4: 上传构建产物到 GitHub Releases
+      # Step 5: 上传构建产物到 GitHub Releases
       - name: Upload artifacts to release
         uses: actions/upload-release-asset@v1
         env:
