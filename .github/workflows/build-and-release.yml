@@ -3,6 +3,9 @@ name: Build and Release C++ Project
 on:
   workflow_dispatch: # 手动触发工作流
 
+permissions:
+  contents: write # 确保有写入内容的权限
+
 jobs:
   build:
     name: Build Project
@@ -34,7 +37,7 @@ jobs:
           cd build
           zip ../release/artifacts.zip SimpleCMakeProject
 
-      # Step 5: 上传构建产物到 GitHub Actions 中的 artifact 存储空间
+      # Step 5: 上传构建产物到 GitHub Actions 的 artifact 存储空间
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -42,7 +45,7 @@ jobs:
           path: release/artifacts.zip
 
   release:
-    name: Upload Release
+    name: Create GitHub Release
     needs: build # 在 build 任务完成后运行
     runs-on: ubuntu-latest
 
@@ -56,9 +59,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
+          path: ./release
 
-      # Step 8: 将构建产物上传到 GitHub Releases
+      # Step 8: 创建 GitHub Release
       - name: Create GitHub Release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的内置 token
@@ -69,4 +74,12 @@ jobs:
             This is an auto-generated release from GitHub Actions.
           draft: false
           prerelease: false
-          artifacts: release/artifacts.zip  # 构建产物路径
+
+      # Step 9: 上传构建产物到 GitHub Release
+      - name: Upload artifacts to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # 使用上一步的 release URL
+          asset_path: ./release/artifacts.zip # 构建产物文件路径
+          asset_name: artifacts.zip # 上传到 release 后的文件名
+          asset_content_type: application/zip
