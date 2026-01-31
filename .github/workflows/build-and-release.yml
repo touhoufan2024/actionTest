@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # 手动触发工作流
 
 permissions:
-  contents: write # 确保有写入内容的权限
+  contents: write # 确保赋予 GITHUB_TOKEN 写入权限
 
 jobs:
   build:
@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential
 
-      # Step 3: 创建构建目录并启动 CMake 构建流程
+      # Step 3: 创建构建目录并开始 CMake 构建
       - name: Build project
         run: |
           mkdir -p build
@@ -30,56 +30,58 @@ jobs:
           cmake ..
           cmake --build .
 
-      # Step 4: 压缩构建产物为 ZIP 文件
+      # Step 4: 压缩构建输出为 zip 文件
       - name: Package build artifacts
         run: |
           mkdir -p release
           cd build
           zip ../release/artifacts.zip SimpleCMakeProject
 
-      # Step 5: 上传构建产物到 GitHub Actions 的 artifact 存储空间
-      - name: Upload artifact
+      # Step 5: 上传构建的产物到 GitHub Actions的 artifact 存储
+      - name: Upload artifacts to Actions
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: release/artifacts.zip
 
   release:
-    name: Create GitHub Release
-    needs: build # 在 build 任务完成后运行
+    name: Create and Upload Release
+    needs: build # 等待 build 任务完成后执行
     runs-on: ubuntu-latest
 
     steps:
-      # Step 6: 检出代码仓库
+      # Step 1: 检出代码仓库
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 7: 下载构建产物
+      # Step 2: 下载构建产物
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
           path: ./release
 
-      # Step 8: 创建 GitHub Release
+      # Step 3: 创建 GitHub Release
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的内置 token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v1.0 # Release 的标签名称
+          tag_name: v1.0 # 为 release 指定的 tag 名称
           release_name: "Release v1.0"
           body: |
             This is an auto-generated release from GitHub Actions.
           draft: false
           prerelease: false
 
-      # Step 9: 上传构建产物到 GitHub Release
+      # Step 4: 上传构建产物到 GitHub Releases
       - name: Upload artifacts to release
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # 使用上一步的 release URL
-          asset_path: ./release/artifacts.zip # 构建产物文件路径
-          asset_name: artifacts.zip # 上传到 release 后的文件名
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/artifacts.zip
+          asset_name: artifacts.zip
           asset_content_type: application/zip
